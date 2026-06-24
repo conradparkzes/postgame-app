@@ -27,8 +27,21 @@ export interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  phone: string | null;
+  onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface UserFavoriteTeam {
+  id: string;
+  user_id: string;
+  sport: Sport;
+  league: string;
+  team_name: string;
+  team_id: string | null;       // API-Sports team ID
+  team_logo_url: string | null; // from TheSportsDB or API-Sports
+  created_at: string;
 }
 
 export interface GameLog {
@@ -54,9 +67,39 @@ export interface GameLog {
   food_rating: number | null;       // 1–5
   accessibility_rating: number | null; // 1–5
   notes: string | null;
+  companions: string[];
   user_ranking: number | null;
   created_at: string;
   updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Sports API search result types
+// ---------------------------------------------------------------------------
+
+export interface TeamSearchResult {
+  id: number;
+  name: string;
+  logo: string | null;
+  league: string;
+  leagueId: number;
+}
+
+export interface GameSearchResult {
+  api_game_id: string;
+  sport: Sport;
+  league: string;
+  leagueId: number;
+  home_team: string;
+  away_team: string;
+  home_score: number | null;
+  away_score: number | null;
+  game_date: string;           // YYYY-MM-DD
+  venue_name: string | null;
+  venue_city: string | null;
+  venue_country: string | null;
+  api_venue_id: string | null;
+  status: string;
 }
 
 export interface GameMedia {
