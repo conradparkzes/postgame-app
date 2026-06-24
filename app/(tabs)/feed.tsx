@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Colors } from '@/src/constants/colors';
 
 // Placeholder — Fan Feed (Friends / For You / Trending) built in v1.1.
 export default function FeedScreen() {
@@ -10,6 +11,6 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  label: { fontSize: 18, color: '#888' },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
+  label: { fontSize: 18, color: Colors.textTertiary },
 });

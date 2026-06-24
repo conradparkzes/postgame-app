@@ -1,16 +1,30 @@
-// PostGame color palette — refined in v0.6 polish pass.
-// Keeping it minimal and clean for the skeleton phase.
+// PostGame — dark theme with Portland Orange accent.
+// All semantic tokens reference these primitives; update here to retheme.
 
 export const Colors = {
-  primary: '#000000',
-  background: '#ffffff',
-  surface: '#f5f5f5',
-  border: '#e5e5e5',
-  textPrimary: '#000000',
-  textSecondary: '#666666',
-  textTertiary: '#999999',
-  accent: '#1a1a1a',
-  error: '#d32f2f',
-  success: '#2e7d32',
-  warning: '#f57c00',
+  // Backgrounds
+  background: '#0a0a0a',
+  surface: '#141414',
+  surfaceRaised: '#1e1e1e',
+  surfaceBorder: '#2a2a2a',
+
+  // Text
+  textPrimary: '#ffffff',
+  textSecondary: '#a0a0a0',
+  textTertiary: '#606060',
+  textInverse: '#000000',
+
+  // Brand
+  accent: '#FF5A36',        // Portland Orange
+  accentDim: '#cc4829',     // darker press state
+  accentSubtle: '#331207',  // tinted surface (e.g. selected chip bg)
+
+  // Utility
+  border: '#2a2a2a',
+  borderFocus: '#FF5A36',
+  error: '#ff453a',
+  success: '#30d158',
+  warning: '#ffd60a',
+  tabBar: '#0a0a0a',
+  tabBarBorder: '#1e1e1e',
 } as const;

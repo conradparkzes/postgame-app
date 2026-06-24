@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Colors } from '@/src/constants/colors';
 
-// Placeholder — Game log list built in v0.4.
+// Placeholder — tab press is intercepted in _layout.tsx to open the (log) modal.
 export default function LogScreen() {
   return (
     <View style={styles.container}>
@@ -10,6 +11,6 @@ export default function LogScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  label: { fontSize: 18, color: '#888' },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
+  label: { fontSize: 18, color: Colors.textTertiary },
 });
