@@ -6,6 +6,7 @@ import { Button } from '@/src/components/ui/Button';
 import { useLogDraft } from '@/src/context/LogContext';
 import { useAuth } from '@/src/hooks/useAuth';
 import { supabase } from '@/src/lib/supabase';
+import { uploadImage } from '@/src/lib/storage';
 import { ProgressDots } from '@/src/components/ui/ProgressDots';
 
 function formatDate(d?: string) {
@@ -101,23 +102,18 @@ export default function ReviewScreen() {
       const gameLogId = logRow.id as string;
 
       // 2. Upload photos
+      const uploadErrors: string[] = [];
       if (draft.mediaUris && draft.mediaUris.length > 0) {
         for (let i = 0; i < draft.mediaUris.length; i++) {
           const uri = draft.mediaUris[i];
           const filename = `${Date.now()}_${i}.jpg`;
-          const storagePath = `game-media/${session.user.id}/${gameLogId}/${filename}`;
+          const storagePath = `${session.user.id}/${gameLogId}/${filename}`;
 
-          // Fetch the image as a blob
-          const response = await fetch(uri);
-          const blob = await response.blob();
-
-          const { error: uploadError } = await supabase.storage
-            .from('game-media')
-            .upload(storagePath, blob, { contentType: 'image/jpeg' });
-
-          if (uploadError) {
-            console.warn('Photo upload failed:', uploadError.message);
-            continue; // Don't block save if photo upload fails
+          try {
+            await uploadImage('game-media', storagePath, uri);
+          } catch (uploadErr: any) {
+            uploadErrors.push(uploadErr?.message ?? 'Unknown upload error');
+            continue;
           }
 
           await supabase.from('game_media').insert({
@@ -128,6 +124,13 @@ export default function ReviewScreen() {
             display_order: i,
           });
         }
+      }
+
+      if (uploadErrors.length > 0) {
+        setError(`Game saved, but ${uploadErrors.length} photo(s) failed: ${uploadErrors[0]}`);
+        setSaving(false);
+        updateDraft({ savedGameLogId: gameLogId });
+        return; // Stay on review so user can see the error
       }
 
       updateDraft({ savedGameLogId: gameLogId });

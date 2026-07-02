@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile } from '@/src/types';
 import { supabase } from '@/src/lib/supabase';
@@ -7,12 +7,24 @@ interface AuthState {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 export function useAuth(): AuthState {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    setProfile(data ?? null);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     // Initial session check
@@ -25,26 +37,23 @@ export function useAuth(): AuthState {
     // Listen for auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else {
+      if (session) {
+        setLoading(true);
+        fetchProfile(session.user.id);
+      } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchProfile]);
 
-  async function fetchProfile(userId: string) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+  const refreshProfile = useCallback(async () => {
+    if (session?.user?.id) {
+      await fetchProfile(session.user.id);
+    }
+  }, [session?.user?.id, fetchProfile]);
 
-    setProfile(data ?? null);
-    setLoading(false);
-  }
-
-  return { session, profile, loading };
+  return { session, profile, loading, refreshProfile };
 }
