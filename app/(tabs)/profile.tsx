@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   View,
@@ -10,7 +12,10 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
 import { useAuth } from '@/src/hooks/useAuth';
 import { fetchUserGameLogs } from '@/src/lib/game-queries';
+import { BallSpinner } from '@/src/components/ui/BallSpinner';
 import { GameCard } from '@/src/components/ui/GameCard';
+import { Skeleton } from '@/src/components/ui/Skeleton';
+import { StateView } from '@/src/components/ui/StateView';
 import type { GameLog } from '@/src/types';
 
 function formatJoinDate(iso: string): string {
@@ -27,46 +32,89 @@ function getInitials(displayName: string | null, username: string): string {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { session, profile } = useAuth();
+  const { session, profile, refreshProfile } = useAuth();
   const [games, setGames] = useState<GameLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadGames = useCallback(async () => {
     if (!session?.user) return;
     try {
       const data = await fetchUserGameLogs(session.user.id);
       setGames(data);
+      setLoadError(false);
     } catch {
-      // Silently fail — user will see empty state
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   }, [session?.user?.id]);
 
-  // Reload when tab is focused (e.g. after logging a new game)
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    // Keep the spinner visible at least 900ms so the ball animation registers
+    await Promise.all([
+      loadGames(),
+      refreshProfile(),
+      new Promise((resolve) => setTimeout(resolve, 900)),
+    ]);
+    setRefreshing(false);
+  }, [loadGames, refreshProfile]);
+
+  // Reload when tab is focused (e.g. after logging a new game or editing profile)
   useFocusEffect(
     useCallback(() => {
       loadGames();
-    }, [loadGames]),
+      refreshProfile();
+    }, [loadGames, refreshProfile]),
   );
 
   const uniqueSports = new Set(games.map((g) => g.sport)).size;
 
   return (
     <View style={styles.container}>
+      <Pressable
+        onPress={() => router.push('/(settings)/')}
+        style={styles.settingsBtn}
+        hitSlop={12}
+      >
+        <Text style={styles.settingsIcon}>⚙</Text>
+      </Pressable>
+
+      {/* Pull-to-refresh spinner: rotating random sports ball (iOS native spinner hidden) */}
+      {refreshing && (
+        <View style={styles.refreshOverlay} pointerEvents="none">
+          <BallSpinner visible={refreshing} />
+        </View>
+      )}
+
       <FlatList
         data={games}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="transparent"
+            colors={[Colors.accent]}
+            progressBackgroundColor={Colors.surface}
+          />
+        }
         ListHeaderComponent={
           <>
             {/* Avatar */}
             <View style={styles.avatarWrap}>
-              <View style={styles.avatar}>
-                <Text style={styles.initials}>
-                  {profile ? getInitials(profile.display_name, profile.username) : '??'}
-                </Text>
-              </View>
+              {profile?.avatar_url ? (
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.initials}>
+                    {profile ? getInitials(profile.display_name, profile.username) : '??'}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Name & Username */}
@@ -110,14 +158,31 @@ export default function ProfileScreen() {
         )}
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator color={Colors.accent} style={{ marginTop: 32 }} />
+            <View>
+              <Skeleton style={{ height: 78, borderRadius: 12, marginBottom: 10 }} />
+              <Skeleton style={{ height: 78, borderRadius: 12, marginBottom: 10 }} />
+              <Skeleton style={{ height: 78, borderRadius: 12 }} />
+            </View>
+          ) : loadError ? (
+            <View style={styles.emptyState}>
+              <StateView
+                icon="📶"
+                title="Couldn't load your games"
+                message="Check your connection and try again."
+                actionLabel="Try Again"
+                onAction={() => {
+                  setLoading(true);
+                  loadGames();
+                }}
+              />
+            </View>
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🏟️</Text>
-              <Text style={styles.emptyTitle}>No games logged yet</Text>
-              <Text style={styles.emptySub}>
-                Tap the Log tab to record your first game experience.
-              </Text>
+              <StateView
+                icon="🏟️"
+                title="No games logged yet"
+                message="Tap the Log tab to record your first game experience."
+              />
             </View>
           )
         }
@@ -130,6 +195,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  settingsBtn: {
+    position: 'absolute',
+    top: 58,
+    right: 24,
+    zIndex: 10,
+  },
+  settingsIcon: {
+    fontSize: 24,
+    color: Colors.textSecondary,
+  },
+  refreshOverlay: {
+    // Below the status bar / notch — this screen has no safe-area inset
+    position: 'absolute',
+    top: 64,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 20,
   },
   listContent: {
     paddingHorizontal: 24,
@@ -149,6 +233,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: Colors.accent,
   },
   initials: {
     fontSize: 28,
@@ -216,22 +307,5 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     marginTop: 40,
-    paddingHorizontal: 32,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 6,
-  },
-  emptySub: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
   },
 });

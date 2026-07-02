@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accentDim,
   },
   primaryLabel: {
-    color: Colors.textPrimary,
+    color: Colors.textInverse,
   },
 
   // secondary — outlined

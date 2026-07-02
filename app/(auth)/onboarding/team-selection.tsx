@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
   },
   checkMark: {
-    color: '#fff',
+    color: Colors.textInverse,
     fontSize: 13,
     fontWeight: '700',
   },

@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accentDim,
   },
   addBtnText: {
-    color: '#fff',
+    color: Colors.textInverse,
     fontWeight: '700',
     fontSize: 15,
   },

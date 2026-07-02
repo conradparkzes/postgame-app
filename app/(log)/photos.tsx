@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
 import { Button } from '@/src/components/ui/Button';
+import { PhotoThumb } from '@/src/components/ui/PhotoThumb';
 import { useLogDraft } from '@/src/context/LogContext';
 import { ProgressDots } from '@/src/components/ui/ProgressDots';
 
@@ -24,11 +24,7 @@ export default function PhotosScreen() {
   const [uris, setUris] = useState<string[]>([]);
 
   async function requestAndPickFromLibrary() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow photo library access to add photos.');
-      return;
-    }
+    // System photo picker needs no permission request — skipping it opens faster
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
@@ -92,12 +88,7 @@ export default function PhotosScreen() {
             style={styles.thumbnailScroll}
           >
             {uris.map((uri) => (
-              <Pressable key={uri} onPress={() => removePhoto(uri)} style={styles.thumbWrap}>
-                <Image source={{ uri }} style={styles.thumb} />
-                <View style={styles.removeOverlay}>
-                  <Text style={styles.removeText}>✕</Text>
-                </View>
-              </Pressable>
+              <PhotoThumb key={uri} uri={uri} onRemove={() => removePhoto(uri)} />
             ))}
           </ScrollView>
         )}
@@ -180,31 +171,6 @@ const styles = StyleSheet.create({
   },
   thumbnailRow: {
     gap: 10,
-  },
-  thumbWrap: {
-    position: 'relative',
-  },
-  thumb: {
-    width: 100,
-    height: 100,
-    borderRadius: 10,
-    backgroundColor: Colors.surface,
-  },
-  removeOverlay: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removeText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
   },
   buttonRow: {
     flexDirection: 'row',

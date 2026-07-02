@@ -1,16 +1,27 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Colors } from '@/src/constants/colors';
+import { StateView } from '@/src/components/ui/StateView';
 
-// Placeholder — Rankings / Leaderboards built in v1.1+.
+// Rankings / Leaderboards ship after the core loop is polished.
 export default function RankingsScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Rankings</Text>
+      <StateView
+        icon="🏆"
+        title="Rankings are coming"
+        message={
+          'Rank every game and stadium you’ve been to — and see how they stack up.\nArriving in an upcoming update.'
+        }
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
-  label: { fontSize: 18, color: Colors.textTertiary },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+  },
 });

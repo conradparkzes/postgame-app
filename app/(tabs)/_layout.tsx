@@ -1,8 +1,16 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
+import { useAuth } from '@/src/hooks/useAuth';
+import { FeedIcon, LogIcon, PodiumIcon, ProfileTabIcon } from '@/src/components/ui/TabIcons';
 
 export default function TabLayout() {
   const router = useRouter();
+  const { profile } = useAuth();
+
+  const initial = (profile?.display_name || profile?.username || '?')
+    .trim()
+    .charAt(0)
+    .toUpperCase();
 
   return (
     <Tabs
@@ -21,7 +29,13 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen name="feed" options={{ title: 'Feed' }} />
+      <Tabs.Screen
+        name="feed"
+        options={{
+          title: 'Feed',
+          tabBarIcon: ({ color }) => <FeedIcon color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="log"
         listeners={() => ({
@@ -30,10 +44,32 @@ export default function TabLayout() {
             router.push('/(log)/sport-selection');
           },
         })}
-        options={{ title: 'Log' }}
+        options={{
+          title: 'Log',
+          tabBarIcon: ({ color }) => <LogIcon color={color} />,
+        }}
       />
-      <Tabs.Screen name="rankings" options={{ title: 'Rankings' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      <Tabs.Screen
+        name="rankings"
+        options={{
+          title: 'Rankings',
+          tabBarIcon: ({ color }) => <PodiumIcon color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color, focused }) => (
+            <ProfileTabIcon
+              color={color}
+              focused={focused}
+              avatarUrl={profile?.avatar_url ?? null}
+              initial={initial}
+            />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

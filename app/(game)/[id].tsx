@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   Modal,
@@ -10,15 +9,18 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
+import { PhotoThumb } from '@/src/components/ui/PhotoThumb';
+import { Skeleton } from '@/src/components/ui/Skeleton';
+import { StateView } from '@/src/components/ui/StateView';
 import { computePostGameScore, formatDate, formatScore, sportEmoji } from '@/src/lib/format';
 import {
   deleteGameLog,
   fetchGameDetail,
   fetchMediaSignedUrls,
 } from '@/src/lib/game-queries';
-import type { GameLog, GameMedia } from '@/src/types';
+import type { GameLog } from '@/src/types';
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -44,7 +46,6 @@ export default function GameDetailScreen() {
   const router = useRouter();
 
   const [log, setLog] = useState<GameLog | null>(null);
-  const [media, setMedia] = useState<GameMedia[]>([]);
   const [photoUrls, setPhotoUrls] = useState<{ id: string; url: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +57,6 @@ export default function GameDetailScreen() {
       setLoading(true);
       const detail = await fetchGameDetail(id);
       setLog(detail.log);
-      setMedia(detail.media);
       if (detail.media.length > 0) {
         const urls = await fetchMediaSignedUrls(detail.media);
         setPhotoUrls(urls);
@@ -68,9 +68,12 @@ export default function GameDetailScreen() {
     }
   }, [id]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // Reload data whenever the screen gains focus (e.g. returning from edit)
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
   function handleEdit() {
     router.push(`/(game)/edit?id=${id}`);
@@ -101,8 +104,18 @@ export default function GameDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.accent} size="large" />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.headerBtn}>
+            <Text style={styles.backArrow}>‹</Text>
+          </Pressable>
+        </View>
+        <View style={styles.scroll}>
+          <Skeleton style={{ height: 180, borderRadius: 16, marginBottom: 16 }} />
+          <Skeleton style={{ height: 60, borderRadius: 12, marginBottom: 16 }} />
+          <Skeleton style={{ height: 96, borderRadius: 12, marginBottom: 12 }} />
+          <Skeleton style={{ height: 96, borderRadius: 12, marginBottom: 12 }} />
+        </View>
       </View>
     );
   }
@@ -110,8 +123,14 @@ export default function GameDetailScreen() {
   if (error || !log) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>{error ?? 'Game not found'}</Text>
-        <Pressable onPress={() => router.back()}>
+        <StateView
+          icon="🏟️"
+          title="Couldn't load this game"
+          message={error ?? 'The game may have been deleted.'}
+          actionLabel="Try Again"
+          onAction={loadData}
+        />
+        <Pressable onPress={() => router.back()} style={styles.backLinkWrap}>
           <Text style={styles.backLink}>Go back</Text>
         </Pressable>
       </View>
@@ -205,11 +224,14 @@ export default function GameDetailScreen() {
         {/* Photos */}
         {photoUrls.length > 0 && (
           <Section label="Photos">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.photoScroll}
+              contentContainerStyle={styles.photoRow}
+            >
               {photoUrls.map((p) => (
-                <Pressable key={p.id} onPress={() => setFullScreenPhoto(p.url)}>
-                  <Image source={{ uri: p.url }} style={styles.thumbnail} />
-                </Pressable>
+                <PhotoThumb key={p.id} uri={p.url} onPress={() => setFullScreenPhoto(p.url)} />
               ))}
             </ScrollView>
           </Section>
@@ -399,12 +421,8 @@ const styles = StyleSheet.create({
   photoScroll: {
     marginTop: 4,
   },
-  thumbnail: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    marginRight: 10,
-    backgroundColor: Colors.surfaceRaised,
+  photoRow: {
+    gap: 10,
   },
   chipRow: {
     flexDirection: 'row',
@@ -426,10 +444,8 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     lineHeight: 20,
   },
-  errorText: {
-    fontSize: 15,
-    color: Colors.error,
-    marginBottom: 16,
+  backLinkWrap: {
+    marginTop: 16,
   },
   backLink: {
     fontSize: 15,

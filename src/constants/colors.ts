@@ -1,4 +1,4 @@
-// PostGame — dark theme with Portland Orange accent.
+// PostGame — dark theme with Honey accent.
 // All semantic tokens reference these primitives; update here to retheme.
 
 export const Colors = {
@@ -15,13 +15,13 @@ export const Colors = {
   textInverse: '#000000',
 
   // Brand
-  accent: '#FF5A36',        // Portland Orange
-  accentDim: '#cc4829',     // darker press state
-  accentSubtle: '#331207',  // tinted surface (e.g. selected chip bg)
+  accent: '#EC9706',        // Honey
+  accentDim: '#BD7905',     // darker press state
+  accentSubtle: '#2E1E02',  // tinted surface (e.g. selected chip bg)
 
   // Utility
   border: '#2a2a2a',
-  borderFocus: '#FF5A36',
+  borderFocus: '#EC9706',
   error: '#ff453a',
   success: '#30d158',
   warning: '#ffd60a',

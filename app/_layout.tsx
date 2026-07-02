@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useAuth } from '@/src/hooks/useAuth';
+import { OfflineBanner } from '@/src/components/ui/OfflineBanner';
 
 // Keep the native splash visible until we've resolved auth state.
 SplashScreen.preventAutoHideAsync();
@@ -24,6 +25,7 @@ function AuthGate() {
     const inTabsGroup = segments[0] === '(tabs)';
     const inLogGroup = segments[0] === '(log)';
     const inGameGroup = segments[0] === '(game)';
+    const inSettingsGroup = segments[0] === '(settings)';
 
     if (!session) {
       // Not signed in — always send to auth
@@ -40,7 +42,7 @@ function AuthGate() {
     }
 
     // Fully authenticated and onboarded — send to main app
-    if (!inTabsGroup && !inLogGroup && !inGameGroup) router.replace('/(tabs)/feed');
+    if (!inTabsGroup && !inLogGroup && !inGameGroup && !inSettingsGroup) router.replace('/(tabs)/feed');
   }, [loading, session, profile, segments, router]);
 
   return (
@@ -56,11 +58,23 @@ function AuthGate() {
           headerShown: false,
         }}
       />
-      <Stack.Screen name="(game)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="(game)"
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="(settings)"
+        options={{ headerShown: false, animation: 'slide_from_right' }}
+      />
     </Stack>
   );
 }
 
 export default function RootLayout() {
-  return <AuthGate />;
+  return (
+    <>
+      <AuthGate />
+      <OfflineBanner />
+    </>
+  );
 }

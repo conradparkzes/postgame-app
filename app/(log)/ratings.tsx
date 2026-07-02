@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
 import { Button } from '@/src/components/ui/Button';
 import { useLogDraft } from '@/src/context/LogContext';
+import { lightHaptic } from '@/src/lib/haptics';
 import { ProgressDots } from '@/src/components/ui/ProgressDots';
 
 const RATINGS = [
@@ -14,6 +15,35 @@ const RATINGS = [
 ];
 
 type RatingKey = 'atmosphere_rating' | 'seating_rating' | 'food_rating' | 'accessibility_rating';
+
+function Star({ filled, onPress }: { filled: boolean; onPress: () => void }) {
+  // Pop with a spring the moment this star becomes filled
+  const scale = useRef(new Animated.Value(1)).current;
+  const wasFilled = useRef(filled);
+
+  useEffect(() => {
+    if (filled && !wasFilled.current) {
+      scale.setValue(0.5);
+      Animated.spring(scale, {
+        toValue: 1,
+        tension: 220,
+        friction: 5,
+        useNativeDriver: true,
+      }).start();
+    }
+    wasFilled.current = filled;
+  }, [filled, scale]);
+
+  return (
+    <Pressable onPress={onPress} hitSlop={6}>
+      <Animated.Text
+        style={[styles.star, filled && styles.starFilled, { transform: [{ scale }] }]}
+      >
+        ★
+      </Animated.Text>
+    </Pressable>
+  );
+}
 
 function StarRow({
   label,
@@ -29,11 +59,11 @@ function StarRow({
       <Text style={styles.ratingLabel}>{label}</Text>
       <View style={styles.stars}>
         {[1, 2, 3, 4, 5].map((n) => (
-          <Pressable key={n} onPress={() => onChange(n)} hitSlop={6}>
-            <Text style={[styles.star, value != null && n <= value && styles.starFilled]}>
-              ★
-            </Text>
-          </Pressable>
+          <Star
+            key={n}
+            filled={value != null && n <= value}
+            onPress={() => onChange(n)}
+          />
         ))}
       </View>
     </View>
@@ -54,6 +84,7 @@ export default function RatingsScreen() {
   const [ratings, setRatings] = useState<Partial<Record<RatingKey, number>>>({});
 
   function setRating(key: RatingKey, value: number) {
+    lightHaptic();
     setRatings((prev) => ({ ...prev, [key]: value }));
   }
 

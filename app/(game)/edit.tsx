@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,14 +11,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@/src/constants/colors';
 import { Button } from '@/src/components/ui/Button';
+import { PhotoThumb } from '@/src/components/ui/PhotoThumb';
+import { Skeleton } from '@/src/components/ui/Skeleton';
 import { useAuth } from '@/src/hooks/useAuth';
 import { supabase } from '@/src/lib/supabase';
+import { uploadImage } from '@/src/lib/storage';
 import {
   fetchGameDetail,
   fetchMediaSignedUrls,
   updateGameLog,
 } from '@/src/lib/game-queries';
-import type { GameLog, GameMedia } from '@/src/types';
+import type { GameMedia } from '@/src/types';
 
 function StarInput({ label, value, onChange }: { label: string; value: number | null; onChange: (v: number) => void }) {
   return (
@@ -185,23 +185,18 @@ export default function EditGameScreen() {
         }
       }
 
-      // 3. Upload new photos
+      // 3. Upload new photos (using base64 approach — blob doesn't work reliably in RN)
       if (newPhotoUris.length > 0) {
         const maxOrder = existingMedia.length;
         for (let i = 0; i < newPhotoUris.length; i++) {
           const uri = newPhotoUris[i];
           const filename = `${Date.now()}_${i}.jpg`;
-          const storagePath = `game-media/${session.user.id}/${id}/${filename}`;
+          const storagePath = `${session.user.id}/${id}/${filename}`;
 
-          const response = await fetch(uri);
-          const blob = await response.blob();
-
-          const { error: uploadError } = await supabase.storage
-            .from('game-media')
-            .upload(storagePath, blob, { contentType: 'image/jpeg' });
-
-          if (uploadError) {
-            console.warn('Photo upload failed:', uploadError.message);
+          try {
+            await uploadImage('game-media', storagePath, uri);
+          } catch (uploadErr) {
+            console.warn('Photo upload failed:', uploadErr);
             continue;
           }
 
@@ -225,8 +220,13 @@ export default function EditGameScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.accent} size="large" />
+      <View style={styles.container}>
+        <View style={{ paddingHorizontal: 24 }}>
+          <Skeleton style={{ height: 20, width: 130, borderRadius: 6, marginBottom: 24, alignSelf: 'center' }} />
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} style={{ height: 46, borderRadius: 10, marginBottom: 10 }} />
+          ))}
+        </View>
       </View>
     );
   }
@@ -385,28 +385,28 @@ export default function EditGameScreen() {
 
         {/* Photos */}
         <Text style={styles.sectionTitle}>Photos</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.photoScroll}
+          contentContainerStyle={styles.photoRow}
+        >
           {existingUrls.map((p) => (
-            <View key={p.id} style={styles.photoWrap}>
-              <Image source={{ uri: p.url }} style={styles.thumbnail} />
-              <Pressable onPress={() => removeExistingPhoto(p.id)} style={styles.removePhoto}>
-                <Text style={styles.removePhotoText}>✕</Text>
-              </Pressable>
-            </View>
+            <PhotoThumb key={p.id} uri={p.url} onRemove={() => removeExistingPhoto(p.id)} />
           ))}
           {newPhotoUris.map((uri, i) => (
-            <View key={`new-${i}`} style={styles.photoWrap}>
-              <Image source={{ uri }} style={styles.thumbnail} />
-              <Pressable
-                onPress={() => setNewPhotoUris((prev) => prev.filter((_, idx) => idx !== i))}
-                style={styles.removePhoto}
-              >
-                <Text style={styles.removePhotoText}>✕</Text>
-              </Pressable>
-            </View>
+            <PhotoThumb
+              key={`new-${i}`}
+              uri={uri}
+              onRemove={() => setNewPhotoUris((prev) => prev.filter((_, idx) => idx !== i))}
+            />
           ))}
-          <Pressable onPress={addPhotos} style={styles.addPhotoBtn}>
+          <Pressable
+            onPress={addPhotos}
+            style={({ pressed }) => [styles.addPhotoBtn, pressed && styles.addPhotoBtnPressed]}
+          >
             <Text style={styles.addPhotoBtnText}>+</Text>
+            <Text style={styles.addPhotoBtnLabel}>Add</Text>
           </Pressable>
         </ScrollView>
 
@@ -550,52 +550,40 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   addBtnText: {
-    color: Colors.textPrimary,
+    color: Colors.textInverse,
     fontWeight: '600',
     fontSize: 14,
   },
   photoScroll: {
     marginBottom: 10,
   },
-  photoWrap: {
-    position: 'relative',
-    marginRight: 10,
-  },
-  thumbnail: {
-    width: 90,
-    height: 90,
-    borderRadius: 8,
-    backgroundColor: Colors.surfaceRaised,
-  },
-  removePhoto: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Colors.error,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  removePhotoText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
+  photoRow: {
+    gap: 10,
   },
   addPhotoBtn: {
-    width: 90,
-    height: 90,
-    borderRadius: 8,
+    width: 100,
+    height: 100,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.surface,
+    gap: 2,
+  },
+  addPhotoBtnPressed: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.surfaceRaised,
   },
   addPhotoBtnText: {
-    fontSize: 28,
+    fontSize: 24,
+    color: Colors.textTertiary,
+    lineHeight: 26,
+  },
+  addPhotoBtnLabel: {
+    fontSize: 11,
+    fontWeight: '600',
     color: Colors.textTertiary,
   },
   cta: {

@@ -1,7 +1,9 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
 import { useLogDraft } from '@/src/context/LogContext';
+import { tapHaptic } from '@/src/lib/haptics';
 import type { Sport } from '@/src/types';
 
 const SPORTS: { sport: Sport; label: string; emoji: string }[] = [
@@ -12,11 +14,62 @@ const SPORTS: { sport: Sport; label: string; emoji: string }[] = [
   { sport: 'football',          label: 'Soccer',  emoji: '⚽' },
 ];
 
+function SportTile({
+  label,
+  emoji,
+  index,
+  onSelect,
+}: {
+  label: string;
+  emoji: string;
+  index: number;
+  onSelect: () => void;
+}) {
+  // Staggered entrance: each tile fades in while rising into place
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: 1,
+      duration: 300,
+      delay: index * 55,
+      useNativeDriver: true,
+    }).start();
+  }, [anim, index]);
+
+  return (
+    <Animated.View
+      style={{
+        width: '44%',
+        opacity: anim,
+        transform: [
+          { translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
+        ],
+      }}
+    >
+      <Pressable
+        onPress={onSelect}
+        style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+      >
+        {({ pressed }) => (
+          <>
+            <View style={[styles.badge, pressed && styles.badgePressed]}>
+              <Text style={styles.emoji}>{emoji}</Text>
+            </View>
+            <Text style={styles.tileLabel}>{label}</Text>
+          </>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export default function SportSelectionScreen() {
   const router = useRouter();
   const { updateDraft, resetDraft } = useLogDraft();
 
   function handleSelect(sport: Sport) {
+    tapHaptic();
     resetDraft();
     updateDraft({ sport });
     router.push('/(log)/game-search');
@@ -33,19 +86,18 @@ export default function SportSelectionScreen() {
           <Text style={styles.closeText}>✕</Text>
         </Pressable>
         <Text style={styles.title}>What sport?</Text>
-        <View style={styles.closeButton} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
-        {SPORTS.map(({ sport, label, emoji }) => (
-          <Pressable
+        {SPORTS.map(({ sport, label, emoji }, i) => (
+          <SportTile
             key={sport}
-            style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
-            onPress={() => handleSelect(sport)}
-          >
-            <Text style={styles.emoji}>{emoji}</Text>
-            <Text style={styles.tileLabel}>{label}</Text>
-          </Pressable>
+            label={label}
+            emoji={emoji}
+            index={i}
+            onSelect={() => handleSelect(sport)}
+          />
         ))}
       </ScrollView>
     </View>
@@ -78,6 +130,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  headerSpacer: {
+    width: 36,
+    height: 36,
+  },
   title: {
     fontSize: 20,
     fontWeight: '700',
@@ -91,7 +147,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tile: {
-    width: '44%',
+    width: '100%',
     aspectRatio: 1.4,
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -99,14 +155,30 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 10,
   },
   tilePressed: {
     backgroundColor: Colors.surfaceRaised,
     borderColor: Colors.accent,
+    transform: [{ scale: 0.97 }],
+  },
+  badge: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: Colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgePressed: {
+    backgroundColor: Colors.accentSubtle,
+    borderColor: Colors.accent,
   },
   emoji: {
-    fontSize: 36,
+    fontSize: 26,
+    lineHeight: 32,
   },
   tileLabel: {
     fontSize: 15,

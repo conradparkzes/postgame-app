@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
 import { Button } from '@/src/components/ui/Button';
 import { useLogDraft } from '@/src/context/LogContext';
+import { successHaptic } from '@/src/lib/haptics';
 
 function formatDate(d?: string) {
   if (!d) return '';
@@ -16,25 +17,45 @@ export default function ConfirmationScreen() {
   const router = useRouter();
   const { draft } = useLogDraft();
 
-  // Animated checkmark
+  // Staggered reveal: check ring pops in, then heading → card → buttons rise up
   const scale = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const contentAnim = useRef(new Animated.Value(0)).current;
+  const cardAnim = useRef(new Animated.Value(0)).current;
+  const actionsAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    successHaptic(); // fires as the check ring pops in
     Animated.parallel([
       Animated.spring(scale, {
         toValue: 1,
         useNativeDriver: true,
-        tension: 80,
+        tension: 90,
         friction: 6,
       }),
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 400,
+        duration: 300,
         useNativeDriver: true,
       }),
+      Animated.sequence([
+        Animated.delay(220),
+        Animated.stagger(110, [
+          Animated.timing(contentAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+          Animated.timing(cardAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+          Animated.timing(actionsAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+        ]),
+      ]),
     ]).start();
-  }, []);
+  }, [scale, opacity, contentAnim, cardAnim, actionsAnim]);
+
+  // Fade in while rising 14px into place
+  const rise = (v: Animated.Value) => ({
+    opacity: v,
+    transform: [
+      { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
+    ],
+  });
 
   function handleDone() {
     router.dismissAll();
@@ -56,11 +77,13 @@ export default function ConfirmationScreen() {
         <Text style={styles.check}>✓</Text>
       </Animated.View>
 
-      <Text style={styles.heading}>Game logged!</Text>
-      <Text style={styles.sub}>Your experience has been saved.</Text>
+      <Animated.View style={[{ alignItems: 'center' }, rise(contentAnim)]}>
+        <Text style={styles.heading}>Game logged!</Text>
+        <Text style={styles.sub}>Your experience has been saved.</Text>
+      </Animated.View>
 
       {/* Game summary */}
-      <View style={styles.card}>
+      <Animated.View style={[styles.card, rise(cardAnim)]}>
         <Text style={styles.teams}>
           {draft.home_team} vs {draft.away_team}
         </Text>
@@ -70,14 +93,14 @@ export default function ConfirmationScreen() {
         {draft.venue_name ? (
           <Text style={styles.meta}>{draft.venue_name}</Text>
         ) : null}
-      </View>
+      </Animated.View>
 
-      <View style={styles.actions}>
+      <Animated.View style={[styles.actions, rise(actionsAnim)]}>
         {draft.savedGameLogId && (
           <Button label="View Game" onPress={handleViewGame} style={styles.doneBtn} />
         )}
         <Button label="Done" onPress={handleDone} variant="secondary" style={styles.doneBtn} />
-      </View>
+      </Animated.View>
     </View>
   );
 }
