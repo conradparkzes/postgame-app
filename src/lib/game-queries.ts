@@ -60,17 +60,33 @@ export async function deleteGameLog(gameId: string, userId: string): Promise<voi
   if (error) throw error;
 }
 
+// Signed URLs are cached per storage path for their lifetime. A fresh URL
+// on every visit would defeat the image cache (different token = different
+// URL = full re-download), which is why photos appeared grey while loading.
+const SIGNED_URL_TTL_S = 3600;
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
 export async function fetchMediaSignedUrls(
   media: GameMedia[],
 ): Promise<{ id: string; url: string }[]> {
   if (media.length === 0) return [];
 
+  const now = Date.now();
   const results = await Promise.all(
     media.map(async (m) => {
+      const cached = signedUrlCache.get(m.storage_path);
+      // Reuse while at least 5 minutes of validity remain
+      if (cached && cached.expiresAt - now > 5 * 60 * 1000) {
+        return { id: m.id, url: cached.url };
+      }
       const { data } = await supabase.storage
         .from('game-media')
-        .createSignedUrl(m.storage_path, 3600);
-      return { id: m.id, url: data?.signedUrl ?? '' };
+        .createSignedUrl(m.storage_path, SIGNED_URL_TTL_S);
+      const url = data?.signedUrl ?? '';
+      if (url) {
+        signedUrlCache.set(m.storage_path, { url, expiresAt: now + SIGNED_URL_TTL_S * 1000 });
+      }
+      return { id: m.id, url };
     }),
   );
 

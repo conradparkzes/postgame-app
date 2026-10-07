@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import {
   Alert,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -9,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
 import { PhotoThumb } from '@/src/components/ui/PhotoThumb';
@@ -265,7 +265,8 @@ export default function GameDetailScreen() {
             <Image
               source={{ uri: fullScreenPhoto }}
               style={styles.fullPhoto}
-              resizeMode="contain"
+              contentFit="contain"
+              transition={150}
             />
           )}
         </Pressable>

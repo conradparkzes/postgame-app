@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
 import { useLogDraft } from '@/src/context/LogContext';
-import { searchTeams, getTeamGames } from '@/src/lib/sports-api';
+import { searchTeams, getTeamGames, FOOTBALL_MIN_QUERY } from '@/src/lib/sports-api';
 import type { GameSearchResult, TeamSearchResult, Sport } from '@/src/types';
 import { ProgressDots } from '@/src/components/ui/ProgressDots';
 
@@ -49,8 +49,15 @@ export default function GameSearchScreen() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Football's API search needs 3+ chars; US leagues filter a cached roster
+  // locally, so results appear from the very first character.
+  const needMoreChars =
+    draft.sport === 'football' &&
+    query.trim().length > 0 &&
+    query.trim().length < FOOTBALL_MIN_QUERY;
+
   useEffect(() => {
-    if (!query.trim() || query.length < 2) {
+    if (!query.trim() || needMoreChars) {
       setTeams([]);
       setSelectedTeam(null);
       setGames([]);
@@ -59,11 +66,11 @@ export default function GameSearchScreen() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       doSearch(query);
-    }, 500);
+    }, 350);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, year]);
 
   // When year changes and a team is already selected, reload games
   useEffect(() => {
@@ -204,6 +211,13 @@ export default function GameSearchScreen() {
         </View>
       ) : null}
 
+      {/* Soccer needs more characters before the API search can run */}
+      {needMoreChars && (
+        <Text style={styles.hintText}>
+          Keep typing — team search needs at least {FOOTBALL_MIN_QUERY} letters.
+        </Text>
+      )}
+
       {/* Loading */}
       {loading ? (
         <View style={styles.center}>
@@ -280,7 +294,7 @@ export default function GameSearchScreen() {
 
       {/* Can't find it */}
       <Pressable style={styles.manualLink} onPress={() => router.push('/(log)/manual-entry')}>
-        <Text style={styles.manualLinkText}>Can't find it? Enter manually</Text>
+        <Text style={styles.manualLinkText}>Can&apos;t find it? Enter manually</Text>
       </Pressable>
     </View>
   );
@@ -404,6 +418,13 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: '#331207',
     borderRadius: 8,
+  },
+  hintText: {
+    fontSize: 13,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    marginTop: 16,
   },
   errorText: {
     color: Colors.error,

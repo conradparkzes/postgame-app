@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react';
 import {
   FlatList,
-  Image,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
 import { useAuth } from '@/src/hooks/useAuth';
@@ -107,7 +107,12 @@ export default function ProfileScreen() {
             {/* Avatar */}
             <View style={styles.avatarWrap}>
               {profile?.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: profile.avatar_url }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                  transition={100}
+                />
               ) : (
                 <View style={styles.avatar}>
                   <Text style={styles.initials}>

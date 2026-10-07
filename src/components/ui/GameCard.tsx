@@ -30,7 +30,9 @@ export function GameCard({ game, onPress }: GameCardProps) {
           <View style={styles.metaRow}>
             <Text style={styles.meta}>{formatDate(game.game_date)}</Text>
             {game.venue_name ? (
-              <Text style={styles.meta} numberOfLines={1}> · {game.venue_name}</Text>
+              <Text style={[styles.meta, styles.metaVenue]} numberOfLines={1}>
+                {' · '}{game.venue_name}
+              </Text>
             ) : null}
           </View>
           {(game.home_score != null || game.away_score != null) && (
@@ -82,6 +84,10 @@ const styles = StyleSheet.create({
   meta: {
     fontSize: 13,
     color: Colors.textSecondary,
+  },
+  metaVenue: {
+    // Ellipsize inside the row instead of overflowing into the score badge
+    flexShrink: 1,
   },
   scoreLine: {
     fontSize: 13,

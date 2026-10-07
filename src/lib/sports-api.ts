@@ -15,6 +15,8 @@
  */
 
 import type { ApiFixture, ApiSportsResponse, Sport, TeamSearchResult, GameSearchResult } from '@/src/types';
+import { fuzzyFilter } from '@/src/lib/fuzzy';
+import { POPULAR_TEAMS } from '@/src/data/popular-teams';
 
 const API_KEY = process.env.EXPO_PUBLIC_SPORTS_API_KEY ?? '';
 
@@ -46,11 +48,12 @@ async function apiGet<T>(sport: string, path: string, params: Record<string, str
 
   // API-Sports returns errors as either an array or an object like { "token": "Error..." }
   if (data.errors) {
-    const hasErrors = Array.isArray(data.errors)
-      ? data.errors.length > 0
-      : typeof data.errors === 'object' && Object.keys(data.errors).length > 0;
-    if (hasErrors) {
-      throw new Error(`API-Sports error: ${JSON.stringify(data.errors)}`);
+    const messages = Array.isArray(data.errors)
+      ? data.errors.map(String)
+      : Object.values(data.errors as Record<string, unknown>).map(String);
+    if (messages.length > 0) {
+      // Surface the human-readable message, not raw JSON
+      throw new Error(messages[0]);
     }
   }
 
@@ -116,9 +119,14 @@ export const LEAGUE_IDS = {
 // Season parameter helper
 // ---------------------------------------------------------------------------
 
-/** Returns "2024-2025" for NBA/NHL, "2024" for all other sports. */
+/**
+ * Returns "2024-2025" for NBA (the basketball API wants the hyphenated
+ * form) and plain "2024" for everything else — including NHL: the hockey
+ * API rejects hyphenated seasons with "The Season field must contain an
+ * integer".
+ */
 export function seasonParam(sport: Sport, year: number): string {
-  if (sport === 'basketball' || sport === 'ice_hockey') {
+  if (sport === 'basketball') {
     return `${year}-${year + 1}`;
   }
   return year.toString();
@@ -165,36 +173,101 @@ function normalizeTeam(sport: Sport, raw: any): TeamSearchResult | null {
   }
 }
 
+// League rosters are small and fixed (~30 teams), so we fetch the whole
+// league once per sport+season and filter locally. This makes 1-character
+// search work (the API's /teams?search= requires ≥3 chars), feels instant,
+// and saves API quota (free plan: 100 requests/day).
+const leagueTeamsCache = new Map<string, TeamSearchResult[]>();
+
+// The NFL endpoint includes AFC/NFC conference pseudo-teams — not real teams.
+const PSEUDO_TEAMS = new Set(['afc', 'nfc']);
+
+export async function fetchLeagueTeams(sport: Sport, year: number): Promise<TeamSearchResult[]> {
+  const leagueId = PRIMARY_LEAGUE[sport];
+  if (leagueId === undefined) return [];
+
+  const cacheKey = `${sport}_${year}`;
+  const cached = leagueTeamsCache.get(cacheKey);
+  if (cached) return cached;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = await apiGet<any>(sport, '/teams', {
+    league: leagueId.toString(),
+    season: seasonParam(sport, year),
+  });
+  const teams = raw
+    .map((r) => normalizeTeam(sport, r))
+    .filter((t): t is TeamSearchResult => t !== null && !PSEUDO_TEAMS.has(t.name.toLowerCase()));
+
+  leagueTeamsCache.set(cacheKey, teams);
+  return teams;
+}
+
+/** Minimum query length for football (soccer) — the API search requires it. */
+export const FOOTBALL_MIN_QUERY = 3;
+
+/** Curated football clubs used as a typo-tolerant fallback (the API search is exact-match). */
+const FOOTBALL_FALLBACK: TeamSearchResult[] = POPULAR_TEAMS
+  .filter((t) => t.sport === 'football')
+  .map((t) => ({
+    id: parseInt(t.team_id, 10),
+    name: t.team_name,
+    logo: null,
+    league: t.league,
+    leagueId: 0,
+  }));
+
 /**
  * Search for teams matching `query` for the given sport and year.
- * Results are scoped to the primary league for that sport when possible.
+ *
+ * US leagues: fuzzy-filters the cached league roster locally (works from
+ * 1 char, tolerates typos). Football (soccer): API-wide search (≥3 chars,
+ * exact-match) with a fuzzy fallback against popular clubs so typos like
+ * "Arsenol" still find Arsenal.
  */
 export async function searchTeams(
   sport: Sport,
   query: string,
   year: number,
 ): Promise<TeamSearchResult[]> {
-  const params: Record<string, string> = { search: query };
+  const q = query.trim();
+  if (!q) return [];
 
   if (sport === 'football') {
-    // Football /teams?search= works without league/season and returns across all leagues
-  } else {
-    // Non-football sports need league + season to scope results
-    const leagueId = PRIMARY_LEAGUE[sport];
-    if (leagueId !== undefined) {
-      params.league = leagueId.toString();
-      params.season = seasonParam(sport, year);
+    if (q.length < FOOTBALL_MIN_QUERY) return [];
+    let results: TeamSearchResult[] = [];
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = await apiGet<any>(sport, '/teams', { search: q.toLowerCase() });
+      results = raw
+        .map((r) => normalizeTeam(sport, r))
+        .filter((t): t is TeamSearchResult => t !== null);
+    } catch {
+      // Fall through to the local fallback rather than surfacing an error
     }
+    if (results.length > 0) return results;
+    return fuzzyFilter(q, FOOTBALL_FALLBACK, (t) => t.name);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = await apiGet<any>(sport, '/teams', params);
-  return raw.map((r) => normalizeTeam(sport, r)).filter((t): t is TeamSearchResult => t !== null);
+  const all = await fetchLeagueTeams(sport, year);
+  return fuzzyFilter(q, all, (t) => t.name);
 }
 
 // ---------------------------------------------------------------------------
 // Game search by team
 // ---------------------------------------------------------------------------
+
+/**
+ * Score shapes differ per API: hockey returns plain numbers
+ * (`scores.home: 3`), basketball/baseball/NFL return objects
+ * (`scores.home.total` / `.points`).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractScore(side: any): number | null {
+  if (side == null) return null;
+  if (typeof side === 'number') return side;
+  return side.total ?? side.points ?? null;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normalizeGame(sport: Sport, raw: any): GameSearchResult | null {
@@ -225,11 +298,17 @@ function normalizeGame(sport: Sport, raw: any): GameSearchResult | null {
 
     // Non-football sports share a similar /games response shape
     const gameId = raw.id;
-    const statusShort = raw.status?.short ?? raw.status?.long ?? '';
+    const statusShort = String(raw.status?.short ?? '').toUpperCase();
+    const statusLong = String(raw.status?.long ?? '').toLowerCase();
+    // Exact short-code match — substring matching wrongly treated any
+    // status containing the letter "F" as a finished game.
+    const FINISHED_CODES = new Set(['FT', 'AOT', 'AP', 'F', 'FIN']);
     const isFinished =
-      ['FT', 'AOT', 'AP', 'F', 'Final', 'Finished'].some((s) =>
-        statusShort.toLowerCase().includes(s.toLowerCase()),
-      ) || raw.status?.long?.toLowerCase() === 'game finished';
+      FINISHED_CODES.has(statusShort) ||
+      statusLong.includes('finished') ||
+      statusLong.includes('final') ||
+      statusLong.includes('after over time') ||
+      statusLong.includes('after penalties');
     if (!isFinished) return null;
 
     const leagueId = raw.league?.id ?? PRIMARY_LEAGUE[sport] ?? 0;
@@ -244,8 +323,8 @@ function normalizeGame(sport: Sport, raw: any): GameSearchResult | null {
       leagueId,
       home_team: raw.teams?.home?.name ?? '',
       away_team: raw.teams?.away?.name ?? '',
-      home_score: raw.scores?.home?.total ?? raw.scores?.home?.points ?? null,
-      away_score: raw.scores?.away?.total ?? raw.scores?.away?.points ?? null,
+      home_score: extractScore(raw.scores?.home),
+      away_score: extractScore(raw.scores?.away),
       game_date: gameDate,
       venue_name: raw.venue?.name ?? null,
       venue_city: raw.venue?.city ?? null,

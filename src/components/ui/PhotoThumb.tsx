@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Colors } from '@/src/constants/colors';
 
 interface PhotoThumbProps {
@@ -21,7 +22,7 @@ export function PhotoThumb({ uri, size = 100, onPress, onRemove }: PhotoThumbPro
         disabled={!onPress}
         style={({ pressed }) => [styles.imageWrap, pressed && !!onPress && styles.pressed]}
       >
-        <Image source={{ uri }} style={styles.image} />
+        <Image source={{ uri }} style={styles.image} contentFit="cover" transition={120} />
       </Pressable>
       {onRemove && (
         <Pressable

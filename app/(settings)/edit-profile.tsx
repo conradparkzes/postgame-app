@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -11,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/src/constants/colors';
@@ -165,7 +165,12 @@ export default function EditProfileScreen() {
           {/* Avatar picker */}
           <Pressable onPress={chooseAvatar} style={styles.avatarWrap}>
             {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatar} />
+              <Image
+                source={{ uri: avatarUri }}
+                style={styles.avatar}
+                contentFit="cover"
+                transition={100}
+              />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.initials}>

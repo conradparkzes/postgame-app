@@ -10,7 +10,7 @@ export default function RankingsScreen() {
         icon="🏆"
         title="Rankings are coming"
         message={
-          'Rank every game and stadium you’ve been to — and see how they stack up.\nArriving in an upcoming update.'
+          'Rank every game and stadium you’ve been to, and see how they stack up.\nArriving in an upcoming update.'
         }
       />
     </View>
